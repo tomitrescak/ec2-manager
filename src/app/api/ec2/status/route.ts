@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Failed to get instance status:', error);
     return NextResponse.json(
-      { error: 'Failed to get instance status' },
+      { error: 'Failed to get instance status: ' + JSON.stringify(error) },
       { status: 500 }
     );
   }

@@ -17,7 +17,8 @@ export default function Home() {
         const data = await response.json();
         setInstanceStatus(data);
       } else {
-        setMessage({ type: 'error', text: 'Failed to fetch instance status' });
+        const data = await response.json();
+        setMessage({ type: 'error', text: 'Failed to fetch instance status ' + JSON.stringify(data) });
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Error fetching instance status' });
