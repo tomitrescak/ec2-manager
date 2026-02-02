@@ -8,11 +8,11 @@ const requiredEnvVars = [
   'ADMIN_PASSWORD'
 ];
 
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    throw new Error(`❌ Missing required environment variable: ${envVar}`);
-  }
-}
+// for (const envVar of requiredEnvVars) {
+//   if (!process.env[envVar]) {
+//     throw new Error(`❌ Missing required environment variable: ${envVar}`);
+//   }
+// }
 
 const nextConfig: NextConfig = {
   /* config options here */

@@ -8,7 +8,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string, debug?: string } | null>(null);
 
   const fetchInstanceStatus = async () => {
     try {
@@ -18,7 +18,11 @@ export default function Home() {
         setInstanceStatus(data);
       } else {
         const data = await response.json();
-        setMessage({ type: 'error', text: 'Failed to fetch instance status ' + JSON.stringify(data) });
+        if (data.debug) {
+          setMessage({ type: 'error', text: data.error || 'Failed to fetch instance status', debug: data.debug });
+        } else {
+          setMessage({ type: 'error', text: data.error || 'Failed to fetch instance status' });
+        }
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Error fetching instance status' });
@@ -180,7 +184,10 @@ export default function Home() {
               ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
               : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
           }`}>
-            {message.text}
+            <div>{message.text}</div>
+            {message.debug && (
+              <div className="mt-4" dangerouslySetInnerHTML={{ __html: message.debug }} />
+            )}
           </div>
         )}
 
