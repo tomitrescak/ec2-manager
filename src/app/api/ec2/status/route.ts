@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getInstanceStatus } from '@/lib/aws';
+import { getInstanceStatus, parseInstances } from '@/lib/aws';
 
 function generateEnvDebugHtml(additionalError?: any) {
   return `
@@ -12,9 +12,9 @@ function generateEnvDebugHtml(additionalError?: any) {
           <th style="padding: 8px; text-align: left;">Value Preview</th>
         </tr>
         <tr>
-          <td style="padding: 8px;">EC2_INSTANCE_ID</td>
-          <td style="padding: 8px;">${process.env.EC2_INSTANCE_ID ? '✅ Set' : '❌ Missing'}</td>
-          <td style="padding: 8px;">${process.env.EC2_INSTANCE_ID ? `${process.env.EC2_INSTANCE_ID.substring(0, 8)}...` : 'Not set'}</td>
+          <td style="padding: 8px;">EC2_INSTANCES</td>
+          <td style="padding: 8px;">${process.env.EC2_INSTANCES ? '✅ Set' : '❌ Missing'}</td>
+          <td style="padding: 8px;">${process.env.EC2_INSTANCES ? `${process.env.EC2_INSTANCES.substring(0, 30)}...` : 'Not set'}</td>
         </tr>
         <tr>
           <td style="padding: 8px;">AMAZON_ACCESS_KEY_ID</td>
@@ -39,12 +39,23 @@ function generateEnvDebugHtml(additionalError?: any) {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const instanceId = searchParams.get('instanceId') || process.env.EC2_INSTANCE_ID;
+  const instanceId = searchParams.get('instanceId');
 
   if (!instanceId) {
+    const instances = parseInstances();
+    if (instances.length === 0) {
+      return NextResponse.json(
+        { 
+          error: 'No instances configured. Please set EC2_INSTANCES environment variable.',
+          debug: generateEnvDebugHtml()
+        },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { 
-        error: 'Instance ID is required',
+        error: 'Instance ID is required. Please select an instance.',
         debug: generateEnvDebugHtml()
       },
       { status: 400 }

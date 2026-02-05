@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const targetInstanceId = instanceId || process.env.EC2_INSTANCE_ID;
+    const targetInstanceId = instanceId;
 
     if (!targetInstanceId) {
       return NextResponse.json(

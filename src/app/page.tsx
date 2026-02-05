@@ -1,18 +1,43 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { InstanceStatus } from "@/lib/aws";
+import { InstanceStatus, Instance } from "@/lib/aws";
 
 export default function Home() {
+  const [instances, setInstances] = useState<Instance[]>([]);
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string>("");
   const [instanceStatus, setInstanceStatus] = useState<InstanceStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string, debug?: string } | null>(null);
 
-  const fetchInstanceStatus = async () => {
+  const fetchInstances = async () => {
     try {
-      const response = await fetch('/api/ec2/status');
+      const response = await fetch('/api/ec2/instances');
+      if (response.ok) {
+        const data = await response.json();
+        setInstances(data.instances);
+        if (data.instances.length > 0 && !selectedInstanceId) {
+          setSelectedInstanceId(data.instances[0].instanceId);
+        }
+      } else {
+        const data = await response.json();
+        setMessage({ type: 'error', text: data.error || 'Failed to fetch instances' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Error fetching instances' });
+    }
+  };
+
+  const fetchInstanceStatus = async () => {
+    if (!selectedInstanceId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/ec2/status?instanceId=${encodeURIComponent(selectedInstanceId)}`);
       if (response.ok) {
         const data = await response.json();
         setInstanceStatus(data);
@@ -37,6 +62,11 @@ export default function Home() {
       return;
     }
 
+    if (!selectedInstanceId) {
+      setMessage({ type: 'error', text: 'Please select an instance' });
+      return;
+    }
+
     setActionLoading(action);
     setMessage(null);
 
@@ -46,7 +76,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, instanceId: selectedInstanceId }),
       });
 
       const data = await response.json();
@@ -67,11 +97,17 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchInstanceStatus();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchInstanceStatus, 30000);
-    return () => clearInterval(interval);
+    fetchInstances();
   }, []);
+
+  useEffect(() => {
+    if (selectedInstanceId) {
+      fetchInstanceStatus();
+      // Auto-refresh every 30 seconds
+      const interval = setInterval(fetchInstanceStatus, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedInstanceId]);
 
   const getStatusColor = (state: string) => {
     switch (state) {
@@ -91,18 +127,44 @@ export default function Home() {
             EC2 Instance Monitor
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Monitor and control your AWS EC2 instance
+            Monitor and control your AWS EC2 instances
           </p>
         </div>
+
+        {instances.length > 0 && (
+          <div className="mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+                Select Instance
+              </h2>
+              <select
+                value={selectedInstanceId}
+                onChange={(e) => {
+                  setSelectedInstanceId(e.target.value);
+                  setInstanceStatus(null);
+                  setMessage(null);
+                }}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">Select an instance...</option>
+                {instances.map((instance) => (
+                  <option key={instance.instanceId} value={instance.instanceId}>
+                    {instance.name} ({instance.instanceId})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
-        ) : instanceStatus ? (
+        ) : selectedInstanceId && instanceStatus ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
             <h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">
-              Instance Status
+              {instances.find(i => i.instanceId === selectedInstanceId)?.name || 'Instance'} Status
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
               <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -172,6 +234,18 @@ export default function Home() {
               </div>
             </div>
           </div>
+        ) : selectedInstanceId && !instanceStatus ? (
+          <div className="text-center text-gray-600 dark:text-gray-400">
+            Failed to load instance information
+          </div>
+        ) : !selectedInstanceId && instances.length > 0 ? (
+          <div className="text-center text-gray-600 dark:text-gray-400">
+            Please select an instance to monitor
+          </div>
+        ) : instances.length === 0 ? (
+          <div className="text-center text-red-600 dark:text-red-400">
+            No instances configured. Please check your EC2_INSTANCES environment variable.
+          </div>
         ) : (
           <div className="text-center text-red-600 dark:text-red-400">
             Failed to load instance information
@@ -193,8 +267,14 @@ export default function Home() {
 
         <div className="text-center">
           <button
-            onClick={fetchInstanceStatus}
-            className="px-4 py-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+            onClick={() => {
+              if (selectedInstanceId) {
+                setLoading(true);
+                fetchInstanceStatus();
+              }
+            }}
+            disabled={!selectedInstanceId}
+            className="px-4 py-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
           >
             Refresh Status
           </button>

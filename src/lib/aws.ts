@@ -8,6 +8,23 @@ const client = new EC2Client({
   },
 });
 
+export interface Instance {
+  name: string;
+  instanceId: string;
+}
+
+export function parseInstances(): Instance[] {
+  const instancesStr = process.env.EC2_INSTANCES;
+  if (!instancesStr) {
+    return [];
+  }
+
+  return instancesStr.split(';').map(pair => {
+    const [name, instanceId] = pair.split(',');
+    return { name: name?.trim() || '', instanceId: instanceId?.trim() || '' };
+  }).filter(instance => instance.name && instance.instanceId);
+}
+
 export interface InstanceStatus {
   instanceId: string;
   state: string;
